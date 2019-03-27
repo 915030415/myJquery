@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<div></div>
+<body>
+    <script>
+        // get(num) 返回原生dom对象 num 可为正负数 也可以为 空 空代表着返回整个原生对象数组；
+        // eq(num) 返回第num个jq对象 num 可为正负数 也可以为 为空返回空；
+        // add(selector): $().add()两个jq对象合并
+        // end() : 返回到上一层对象去；
+        // 1.封装 立即执行函数  把$和jQuery 挂到window上产生闭包
+        ;
+        (function () {
+            function jQuery(selector) {
+                return new jQuery.prototype.Init(selector);
+            }
+            jQuery.prototype.Init = function (selector) {
+
+                //  this={} 执行init
+                // 选出dom 包装成jQuery对象并放回
+                // selector为：1:id class
+                // 2:null 或 undefined 
+                // 3:原生dom对象
+                this.length = 0;
+                if (selector == null) { //null == undefined;
+                    return this; //容错处理；
+                }
+                if (typeof selector == 'string' && selector.indexOf('.') != -1) { //表示为class typeof selectop = Object原生对象没有indexof（）这个方法
+                    var dom = document.getElementsByClassName(selector.slice(1));
+                    //slice（start,end）从start开始截取 返回一个子数组 end可以不填 
+                } else if (typeof selector == 'string' && selector.indexOf('#') != -1) {
+                    var dom = document.getElementById(selector.slice(1));
+                }
+                // if(selector instanceof Element){//判断selector的原型链式有 没有 Element 来判断selector是不是dom对象
+                // typeof Element = function typeof Object = function
+                //     this[0] = selector;
+                //     this.length++;
+                // }
+                if (selector instanceof Element || dom.length == undefined) { //表示id  当selector为原生对象时就不走后面 因为don没被定义 
+                    this[0] = dom || selector; //selector 为原生对象时 dom未定义
+                    this.length++;
+                } else {
+                    for (var i = 0; i < dom.length; i++) {
+                        this[i] = dom[i];
+                        this.length++;
+                    }
+                }
+                // return this;默认会返回
+            }
+            jQuery.prototype.pushStack = function (dom) {
+                // console.log(dom.constructor == jQuery.prototype.Init)
+                // console.log(dom);
+                //     console.log(dom.constructor); 
+                //    输出为： f jQuery(selector){ return new jQuery.prototype.Init(selector;}
+                if (dom.constructor != jQuery) { //表明为原生对象 
+                    dom = jQuery(dom);
+                }
+                dom.prevObject = this;
+                return dom;
+            }
+            jQuery.prototype.css = function (config) {
+                for (var i = 0; i < this.length; i++) { //循环调用每一个dom
+
+                    for (var attr in config) {
+                        this[i].style[attr] = config[attr];
+                    }
+                }
+                return this;
+            }
+            jQuery.prototype.get = function (num) {
+                // this ={} jq类数组
+                // if(num){
+                //     return Array.prototype.slice.call(this,0);//把类数组变为数组 从0位开始截取；
+                // } else if(num>=0){
+                //     return this[num];//类数组可以用[]和.的方式调用属性和方法
+
+                // }else{//num为负数的时候
+                //     return this[num+this.length];
+                // }
+                return num != null ? (num >= 0 ? this[num] : this[num + this.length]) : [].slice.call(this, 0);
+            }
+            jQuery.prototype.eq = function (num) {
+                // this 为jq对象类数组
+                var dom = num != null ? (num >= 0 ? this[num] : this[num + this.length]) : null;
+                // return jQuery(this.get(num));
+                return this.pushStack(dom);
+                // return jQuery(dom);//把原生对象包装成jq对象
+            }
+            jQuery.prototype.add = function (selector) {
+                var curObj = jQuery(selector);
+                var baseObj = this;
+                var newObj = jQuery(); //合并jq对象；创造一个空的jq对象
+                for (var i = 0; i < curObj.length; i++) {
+                    newObj[newObj.length++] = curObj[i]; //newObj.lenght 开始为0 执行完赋值操作后++；
+                }
+                for (var i = 0; i < baseObj.length; i++) {
+                    newObj[newObj.length++] = baseObj[i];
+                }
+
+                // newObj.prevObject = this;//前一个对象为调用add的jq对象
+                this.pushStack(newObj);
+                return newObj;
+            }
+            jQuery.prototype.end = function (selector) {
+                return this.prevObject;
+            }
+            jQuery.prototype.myOn = function (type, handle) { //绑定自定义事件
+                for (var i = 0; i < this.length; i++) { //遍历 原生dom 对象 在dom 对象上添加自定义 属性
+                    // this[i].cacheEvent = {}
+                    if (!this[i].cacheEvent) { //判断原生dom上有没有缓存 自定义事件
+                        this[i].cacheEvent = {};
+                    }
+                    if (!this[i].cacheEvent[type]) { //判断有没有缓存自定函数
+                        this[i].cacheEvent[type] = [handle];
+                    } else {
+                        this[i].cacheEvent[type].push(handle);
+                    }
+                }
+
+            }
+            jQuery.prototype.myTrigger = function (type) { //对 原生dom操作因为 两个$('') 选中jq对象是不同的
+                var params = arguments.length > 1 ? [].slice.call(arguments, 1) : []; //如果有参数的话 把参数设置为数组
+                var self = this;
+                for (var i = 0; i < this.length; i++) { //遍历jq对象 对每个原生dom 主动触发事件
+                    if (this[i].cacheEvent[type]) {
+                        this[i].cacheEvent[type].forEach(function (ele, index) { //遍历 绑定的多个事件处理函数
+                            ele.apply(self, params); // 用 self 代替this 执行window；
+                        });
+                    }
+                }
+            }
+            jQuery.prototype.myQueue = function () {
+                var queueObj = this;
+                var queueName = arguments[0] || 'fx'; //没传 type类型的时候为 animate自己调用 内部为fx；
+                var addFunc = arguments[1] || null; //队列函数
+                var len = arguments.length; //当长度为一 的时候 为取 type 数组 取出函数队列
+                if (len == 1) {
+                    return queueObj[0][queueName];
+                }
+                // 否则为 设置队列 this[0][queueName] = []; this[0] = {chain = [addfunc]}// 设置在原生dom 上 jQuery 设置在全局Data上
+                queueObj[0][queueName] == undefined ? queueObj[0][queueName] = [addFunc] : queueObj[0][
+                    queueName
+                ].push(addFunc); //判断 队列是否 为空 为空时创建数组 否则 加入队尾；
+                return this;
+            }
+            jQuery.prototype.myDequeue = function () {
+                var self = this;
+                var queueName = arguments[0] || 'fx'; //没传 type类型的时候为 animate自己调用 内部为fx；
+                var queueArr = this.myQueue(queueName); //获取 队列；
+                var currFunc = queueArr.shift(); // 获取队列的第一 函数；
+                if (currFunc == undefined) { //当 当前队列为 空的时候 返回
+                    return;
+                }
+                var next = function () { //递归调用 弹出队列 中的所有 项目
+                    // console.log(this)
+                    self.myDequeue(queueName); // 因为 next 在windows下执行的 所有 this执行windows 改用self；
+                }
+                currFunc(next);
+            }
+            jQuery.prototype.myDelay = function (duration) {
+                var queueArr = this[0]['fx']; //取出 队列；
+                queueArr.push(function (next) {
+                    setTimeout(function () {
+                        next(); //延迟duration 后下一个函数执行
+                    }, duration); //相当于入列 延迟 多少秒后下一个函数才能执行
+                });
+                return this;
+            }
+            jQuery.prototype.myAnimate = function (json, callBack) {
+                var self = this;
+                var len = this.length;
+                var baseFunc = function (next) {
+                    var time = 0; //记录多少个选中的dom 操作了动画
+                    for (var i = 0; i < len; i++) {
+                        time++;
+                        // console.log(this);
+                        startMove(self[i], json, function () {
+                            // console.log(this) 
+                            if (time == len) { //当所有dom的运动完成后 执行 回调函数
+                                callBack && callBack();
+                                next && next(); //执行 队列下了一个 函数；
+                            }
+                        });
+
+                    }
+                }
+                this.myQueue('fx', baseFunc); // 当有jq对象调用animate 时 入列
+                if (this.myQueue('fx').length == 1) { //当只 调用一个 animate 时 立即出列 当有多个时 第一个出列 带动后面的函数出列
+
+                    this.myDequeue('fx');
+                }
+
+                function getStyle(obj, attr) {
+                    if (obj.currentStyle) {
+                        return obj.currentStyle[attr];
+                    } else {
+                        return window.getComputedStyle(obj, false)[attr];
+                    }
+                }
+
+                function startMove(obj, json, callBack) {
+                    clearInterval(obj.timer);
+                    var speed = null;
+                    var iCur = null;
+                    obj.timer = setInterval(function () {
+                        var bStop = true;
+                        for (var attr in json) {
+                            if (attr == 'opacity') {
+                                iCur = parseFloat(getStyle(obj, attr)) * 100;
+                            } else {
+                                iCur = parseInt(getStyle(obj, attr));
+                            }
+                            speed = (parseInt(json[attr]) - iCur) / 10; //当数值后面加 px的时候用这个
+                            //  speed = (json[attr] - iCur)/10;
+                            speed = speed > 0 ? Math.ceil(speed) : Math.floor(speed);
+                            // console.log(speed)
+                            if (attr == 'opacity') {
+                                // console.log(iCur);
+                                // console.log(speed);
+                                obj.style.opacity = (iCur + speed) / 100;
+                            } else {
+                                obj.style[attr] = iCur + speed + 'px';
+                            }
+                            if (json[attr] == iCur) {
+                                bStop = false;
+                            }
+                        }
+                        if (!bStop) {
+                            clearInterval(obj.timer);
+                            typeof callBack == 'function' && callBack();
+                        }
+                    }, 30);
+                }
+                return this;
+            }
+            jQuery.myCallbacks = function () {
+                // 参数：once memory 'once memory' 'null'
+                var options = arguments[0] || '';
+                var fireIndex = 0; //控制回调函数执行几个;
+                var link = []; //记录注册的函数；
+                var fireflag = false; //记录是否被fire过；
+                var args = []; //回调函数要执行的参数
+                var fire = function () {
+                    for (; fireIndex < link.length; fireIndex++) {
+                        link[fireIndex].apply(window, args); //回调函数在全局的环境下执行；
+                    }
+                    if (options.indexOf('once') != -1) {
+                        link = []; //只能fire 一次 清空列表；
+                        //   fireIndex = 0;
+                    }
+                }
+                return { //放回一个包含add 和fire方法的延迟对象
+                    add: function (func) {
+                        link.push(func); //设置一次只能传以个回调函数
+                        if (options.indexOf('memory') != -1 && fireflag) {
+                            //前面已经 fire过
+                            fire();
+                        } 
+                        return this; //可以链式调用；
+                    },
+                    fire: function () {
+                        fireIndex = 0; //当再一次执行fire的时候 从第一开始 再次遍历 回调函数
+                        args = arguments; // 要传给 回调函数的参数
+                        fireflag = true; //记录被 fire过 
+                        fire();
+                    }
+
+                }
+            }
+            jQuery.myDeferred = function () {//利用数组 创建三个 不同参数的Callbacks对象 每个对象有自己的 方法
+                // 1.done resolve 成功
+                // 2.fail reject 失败
+                // 3.progress notify 还在过程中
+              var arr = [[
+                  jQuery.myCallbacks('once memory'),'done','resolve'
+              ],[
+                  jQuery.myCallbacks('once memory'),'fail','reject'
+              ],[
+                  jQuery.myCallbacks('memory'),'progress','notify'
+              ]];
+              var deferred = {};//返回的对象 上包含 对应上面的 6个方法；
+              var pendding = true ;// 用来判断 使用已经 调用了 成功或 失败的 回调函数的 
+              for(var i = 0;i<arr.length;i++){//把方法加到deferred 中
+                  // arr[0][1]
+
+            // 注册
+            // deferred['done'] = function () {}
+            // deferred['fail'] = function () {}
+            // deferred['progress'] = function () {}
+                // deferred[arr[i][1]] = function(func){//这样是错的 因为i是全局变量 当for循环结束之后 i =length 这样每次调用的时候 都是调用的 progress 
+                //     arr[i][0].add(func);
+                // }
+                deferred[arr[i][1]] = (function(index){//利用立即执行函数 闭包解决
+               return function(func){
+                   arr[index][0].add(func);//jQuery.myCallbacks('once memory') 调用add方法
+               }
+                })(i);
+
+                // 触发
+            // deferred['resolve'] = function () {}
+            // deferred['reject'] = function () {}
+            // deferred['notify'] = function () {}
+              deferred[arr[i][2]] = (function(index){
+                  return function(){
+                    var args = arguments;//需要传参数
+                    if(pendding){//之前没有触发过 resolve 和reject 函数
+                        arr[index][0].fire.apply(window,args);//在全局下执行
+                        // 记录有没有 调用过成功或失败的回调函数；
+                        arr[index][2]  == 'resolve' || arr[index][2] == 'reject' ? pendding =false : '' //为progress 时不做处理
+                    }
+                  }
+              })(i);
+              }
+              return deferred;
+            }
+            window.$ = window.jQuery = jQuery;
+            jQuery.prototype.Init.prototype = jQuery.prototype; //把init的原型挂到jQuery的原型上 这样 init 放回的对象就可以 调用 css方法
+        })();
+    </script>
+</body>
+
+</html>
